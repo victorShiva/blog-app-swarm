@@ -17,11 +17,16 @@ const pool = mysql.createPool({
 app.get('/', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT title, description FROM blogs')
-        res.render('index', { blogs: rows })
+        res.render('index', { blogs: rows , version: 'v1', host: process.env.NODE_HOST || 'unknown'})
     } catch (error) {
         console.error(error)
         res.status(500).send('Error retrieving blog posts')
     }
+})
+
+app.get('/health', (req,res)=>{
+    console.log(`Checking health through endpoint...`)
+    return res.json({alive:true})
 })
 
 const PORT = process.env.PORT || 3000

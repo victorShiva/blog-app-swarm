@@ -1,36 +1,63 @@
-name: blog-app # version: (obsolete)
+version: "3.9"
 
 services:
-    blog-db:
-        image: 'mysql'
-        environment:
-            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-        volumes:
-            - blog-db-vol:/var/lib/mysql
-        ports:
-            - '3306:3306'
-        networks:
-            - blog-app-net
+  blog-db:
+    image: mysql:latest
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first
+        failure_action: rollback
+        delay: 10s
+      rollback_config:
+        parallelism: 1
+        order: start-first
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: blogdb
+      MYSQL_ROOT_HOST: "%"
+    volumes:
+      - blog-db-vol:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - blog-app-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-    blog-server:
-        build:
-            dockerfile: 'Dockerfile'
-            context: './'
-        container_name: 'blog-app-container'
-        ports:
-            - '3001:3000'
-        env_file:
-            - ./.env
-        volumes:
-            - './:/app'
-        depends_on:
-            - blog-db
-        networks:
-            - blog-app-net
+  blog-server:
+    image: shiva5775/blog-apps:v2
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first
+        failure_action: rollback
+        delay: 10s
+      rollback_config:
+        parallelism: 1
+        order: start-first
+    environment:
+      DB_HOST: blog-db
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: blogdb
+      NODE_HOST: "{{.Node.Hostname}}"
+    ports:
+      - "3001:3000"
+    networks:
+      - blog-app-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
-    blog-db-vol:
+  blog-db-vol:
+
 networks:
-    blog-app-net:
-      driver: 'bridge'
-    
+  blog-app-net:
+    driver: overlay
